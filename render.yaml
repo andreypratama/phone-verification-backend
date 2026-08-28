@@ -7,7 +7,6 @@ services:
     dockerfilePath: ./Dockerfile
     dockerContext: .
     autoDeployTrigger: off
-    maxShutdownDelaySeconds: 30
     envVars:
       - key: GATEWAY_PHONE_NUMBER
         sync: false
