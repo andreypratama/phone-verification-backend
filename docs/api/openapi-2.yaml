@@ -15,6 +15,7 @@ servers:
 tags:
   - name: Verifications
   - name: SMS
+  - name: Debug
   - name: Internal Android Webhook
 
 paths:
@@ -51,8 +52,6 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '409':
-          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -137,6 +136,31 @@ paths:
                 $ref: '#/components/schemas/IncomingSmsResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/debug/storage:
+    get:
+      tags: [Debug]
+      operationId: getDebugStorage
+      summary: Mengambil seluruh state storage in-memory untuk debugging
+      description: |
+        Endpoint debug untuk melihat seluruh data yang sedang tersimpan selama service hidup:
+        verifications, incoming SMS, dan nonce HMAC. Endpoint ini memakai autentikasi HMAC API
+        yang sama seperti endpoint `/api/v1/**` lainnya.
+      security:
+        - ApiHmacSignature: []
+          ApiHmacTimestamp: []
+          ApiHmacNonce: []
+      responses:
+        '200':
+          description: Snapshot storage in-memory saat ini
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DebugStorageResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '500':
@@ -258,6 +282,37 @@ components:
           type: string
           format: date-time
 
+    DebugVerificationItem:
+      type: object
+      required:
+        - id
+        - phoneNumber
+        - codeHash
+        - status
+        - createdAt
+        - expiresAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        phoneNumber:
+          type: string
+        codeHash:
+          type: string
+          minLength: 64
+          maxLength: 64
+        status:
+          $ref: '#/components/schemas/VerificationStatus'
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        verifiedAt:
+          type: string
+          format: date-time
+
     SmsItem:
       type: object
       required:
@@ -345,6 +400,97 @@ components:
         verificationStatus:
           $ref: '#/components/schemas/VerificationStatus'
 
+    DebugIncomingSmsItem:
+      type: object
+      required:
+        - id
+        - fingerprint
+        - senderRaw
+        - messageText
+        - receivedAt
+        - matchStatus
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        fingerprint:
+          type: string
+          minLength: 64
+          maxLength: 64
+        senderRaw:
+          type: string
+        senderPhone:
+          type: string
+        messageText:
+          type: string
+        sentAt:
+          type: string
+          format: date-time
+        receivedAt:
+          type: string
+          format: date-time
+        simInfo:
+          type: string
+        matchStatus:
+          $ref: '#/components/schemas/SmsMatchStatus'
+        verificationId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+
+    DebugNonceItem:
+      type: object
+      required:
+        - nonce
+        - usedAt
+        - expiresAt
+      properties:
+        nonce:
+          type: string
+          minLength: 1
+          maxLength: 128
+        usedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+
+    DebugStorageResponse:
+      type: object
+      required:
+        - verificationsCount
+        - incomingSmsCount
+        - noncesCount
+        - verifications
+        - incomingSms
+        - nonces
+      properties:
+        verificationsCount:
+          type: integer
+          minimum: 0
+        incomingSmsCount:
+          type: integer
+          minimum: 0
+        noncesCount:
+          type: integer
+          minimum: 0
+        verifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/DebugVerificationItem'
+        incomingSms:
+          type: array
+          items:
+            $ref: '#/components/schemas/DebugIncomingSmsItem'
+        nonces:
+          type: array
+          items:
+            $ref: '#/components/schemas/DebugNonceItem'
+
     ApiError:
       type: object
       required:
@@ -371,7 +517,6 @@ components:
             - INVALID_PATH_PARAMETER
             - INVALID_REQUEST
             - RESOURCE_NOT_FOUND
-            - DATA_CONFLICT
             - INTERNAL_ERROR
             - HMAC_HEADERS_REQUIRED
             - HMAC_TIMESTAMP_INVALID
@@ -402,12 +547,6 @@ components:
             $ref: '#/components/schemas/ApiError'
     NotFound:
       description: Resource tidak ditemukan
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ApiError'
-    Conflict:
-      description: Konflik data
       content:
         application/json:
           schema:
