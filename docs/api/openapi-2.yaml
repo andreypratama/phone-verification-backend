@@ -1,0 +1,420 @@
+openapi: 3.1.0
+info:
+  title: SMS Verification Gateway API
+  version: 1.0.0
+  description: |
+    API untuk membuat sesi verifikasi nomor handphone, mengecek status,
+    membaca SMS yang berelasi dengan sesi, dan menerima webhook SMS dari Android.
+
+    Endpoint `/api/v1/**` wajib ditandatangani oleh client tepercaya/BFF menggunakan
+    canonical HMAC request. Secret tidak boleh disimpan dalam browser.
+servers:
+  - url: https://api.example.com
+    description: Ganti dengan URL deployment service
+
+tags:
+  - name: Verifications
+  - name: SMS
+  - name: Internal Android Webhook
+
+paths:
+  /api/v1/verifications:
+    post:
+      tags: [Verifications]
+      operationId: createVerification
+      summary: Membuat kode verifikasi untuk nomor handphone
+      description: |
+        Membuat sesi `PENDING`. Nomor dinormalisasi ke E.164. Jika nomor yang sama
+        sudah mempunyai sesi `PENDING`, sesi sebelumnya diubah menjadi `EXPIRED`.
+      security:
+        - ApiHmacSignature: []
+          ApiHmacTimestamp: []
+          ApiHmacNonce: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateVerificationRequest'
+            examples:
+              indonesia:
+                value:
+                  phoneNumber: '0812 3456 7890'
+      responses:
+        '201':
+          description: Sesi verifikasi berhasil dibuat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateVerificationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/verifications/{verificationId}/status:
+    get:
+      tags: [Verifications]
+      operationId: getVerificationStatus
+      summary: Mengecek status sesi verifikasi
+      description: Gunakan untuk polling. Body request harus kosong dan nonce harus baru.
+      security:
+        - ApiHmacSignature: []
+          ApiHmacTimestamp: []
+          ApiHmacNonce: []
+      parameters:
+        - $ref: '#/components/parameters/VerificationId'
+      responses:
+        '200':
+          description: Status sesi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationStatusResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/verifications/{verificationId}/sms:
+    get:
+      tags: [SMS]
+      operationId: listVerificationSms
+      summary: Mengambil SMS yang berelasi dengan sesi
+      description: Maksimum 50 SMS, diurutkan berdasarkan receivedAt terbaru.
+      security:
+        - ApiHmacSignature: []
+          ApiHmacTimestamp: []
+          ApiHmacNonce: []
+      parameters:
+        - $ref: '#/components/parameters/VerificationId'
+      responses:
+        '200':
+          description: Daftar SMS terkait
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmsListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /internal/sms/incoming:
+    post:
+      tags: [Internal Android Webhook]
+      operationId: receiveIncomingSms
+      summary: Menerima SMS dari aplikasi Android SMS Forwarder
+      description: |
+        Bukan endpoint frontend. `X-Signature` dihitung langsung atas byte raw JSON body
+        menggunakan `SMS_FORWARDER_HMAC_SECRET`.
+      security:
+        - SmsForwarderHmacSignature: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IncomingSmsRequest'
+      responses:
+        '200':
+          description: SMS diterima dan diproses
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncomingSmsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  securitySchemes:
+    ApiHmacSignature:
+      type: apiKey
+      in: header
+      name: X-Signature
+      description: Lowercase hex HMAC-SHA-256 dari canonical request.
+    ApiHmacTimestamp:
+      type: apiKey
+      in: header
+      name: X-Timestamp
+      description: Unix epoch dalam detik, default toleransi ±5 menit.
+    ApiHmacNonce:
+      type: apiKey
+      in: header
+      name: X-Nonce
+      description: Nilai unik 16–128 karakter; UUID direkomendasikan.
+    SmsForwarderHmacSignature:
+      type: apiKey
+      in: header
+      name: X-Signature
+      description: Lowercase hex HMAC-SHA-256 atas raw JSON body Android.
+
+  parameters:
+    VerificationId:
+      name: verificationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    VerificationStatus:
+      type: string
+      enum: [PENDING, VERIFIED, EXPIRED]
+
+    SmsMatchStatus:
+      type: string
+      enum:
+        - MATCHED
+        - NO_VERIFICATION_CODE
+        - UNKNOWN_CODE
+        - PHONE_MISMATCH
+        - EXPIRED_CODE
+        - ALREADY_VERIFIED
+        - INVALID_SENDER
+
+    CreateVerificationRequest:
+      type: object
+      required: [phoneNumber]
+      properties:
+        phoneNumber:
+          type: string
+          minLength: 1
+          maxLength: 32
+          examples: ['081234567890']
+
+    CreateVerificationResponse:
+      type: object
+      required:
+        - verificationId
+        - phoneNumber
+        - code
+        - smsText
+        - destinationNumber
+        - status
+        - expiresAt
+      properties:
+        verificationId:
+          type: string
+          format: uuid
+        phoneNumber:
+          type: string
+          examples: ['+6281234567890']
+        code:
+          type: string
+          examples: [K7P4M9QX]
+        smsText:
+          type: string
+          examples: ['VERIF K7P4M9QX']
+        destinationNumber:
+          type: string
+          examples: ['081100009999']
+        status:
+          $ref: '#/components/schemas/VerificationStatus'
+        expiresAt:
+          type: string
+          format: date-time
+
+    VerificationStatusResponse:
+      type: object
+      required:
+        - verificationId
+        - phoneNumber
+        - status
+        - createdAt
+        - expiresAt
+      properties:
+        verificationId:
+          type: string
+          format: uuid
+        phoneNumber:
+          type: string
+        status:
+          $ref: '#/components/schemas/VerificationStatus'
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        verifiedAt:
+          type: string
+          format: date-time
+
+    SmsItem:
+      type: object
+      required:
+        - smsId
+        - senderRaw
+        - text
+        - receivedAt
+        - matchStatus
+      properties:
+        smsId:
+          type: string
+          format: uuid
+        senderRaw:
+          type: string
+        senderPhone:
+          type: string
+        text:
+          type: string
+        sentAt:
+          type: string
+          format: date-time
+        receivedAt:
+          type: string
+          format: date-time
+        sim:
+          type: string
+        matchStatus:
+          $ref: '#/components/schemas/SmsMatchStatus'
+
+    SmsListResponse:
+      type: object
+      required: [verificationId, count, items]
+      properties:
+        verificationId:
+          type: string
+          format: uuid
+        count:
+          type: integer
+          minimum: 0
+          maximum: 50
+        items:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/SmsItem'
+
+    IncomingSmsRequest:
+      type: object
+      required: [from, text]
+      properties:
+        from:
+          type: string
+          minLength: 1
+          maxLength: 64
+        text:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        sentStamp:
+          type: integer
+          format: int64
+          description: Unix epoch milidetik.
+        receivedStamp:
+          type: integer
+          format: int64
+          description: Unix epoch milidetik.
+        sim:
+          type: string
+          maxLength: 128
+
+    IncomingSmsResponse:
+      type: object
+      required: [smsId, duplicate, matchStatus]
+      properties:
+        smsId:
+          type: string
+          format: uuid
+        duplicate:
+          type: boolean
+        matchStatus:
+          $ref: '#/components/schemas/SmsMatchStatus'
+        verificationId:
+          type: string
+          format: uuid
+        verificationStatus:
+          $ref: '#/components/schemas/VerificationStatus'
+
+    ApiError:
+      type: object
+      required:
+        - timestamp
+        - status
+        - error
+        - code
+        - message
+        - path
+        - fieldErrors
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+        error:
+          type: string
+        code:
+          type: string
+          enum:
+            - VALIDATION_ERROR
+            - INVALID_JSON
+            - INVALID_PATH_PARAMETER
+            - INVALID_REQUEST
+            - RESOURCE_NOT_FOUND
+            - DATA_CONFLICT
+            - INTERNAL_ERROR
+            - HMAC_HEADERS_REQUIRED
+            - HMAC_TIMESTAMP_INVALID
+            - HMAC_NONCE_INVALID
+            - HMAC_SIGNATURE_INVALID
+            - HMAC_REPLAY_DETECTED
+        message:
+          type: string
+        path:
+          type: string
+        fieldErrors:
+          type: object
+          additionalProperties:
+            type: string
+
+  responses:
+    BadRequest:
+      description: Request tidak valid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthorized:
+      description: HMAC tidak valid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotFound:
+      description: Resource tidak ditemukan
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Conflict:
+      description: Konflik data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    InternalError:
+      description: Error internal service
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'

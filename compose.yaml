@@ -1,0 +1,19 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sms-verification-gateway:local
+    restart: unless-stopped
+    environment:
+      PORT: 8080
+      GATEWAY_PHONE_NUMBER: ${GATEWAY_PHONE_NUMBER:-081100009999}
+      API_HMAC_SECRET: ${API_HMAC_SECRET:-local-api-secret-change-me-32-characters-minimum}
+      SMS_FORWARDER_HMAC_SECRET: ${SMS_FORWARDER_HMAC_SECRET:-local-sms-secret-change-me-32-characters-minimum}
+      DEFAULT_COUNTRY_CODE: ${DEFAULT_COUNTRY_CODE:-62}
+      VERIFICATION_PREFIX: ${VERIFICATION_PREFIX:-VERIF}
+      VERIFICATION_CODE_LENGTH: ${VERIFICATION_CODE_LENGTH:-8}
+      VERIFICATION_TTL: ${VERIFICATION_TTL:-PT10M}
+      HMAC_ALLOWED_CLOCK_SKEW: ${HMAC_ALLOWED_CLOCK_SKEW:-PT5M}
+    ports:
+      - "8080:8080"

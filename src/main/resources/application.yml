@@ -1,0 +1,36 @@
+server:
+  port: ${PORT:8080}
+  shutdown: graceful
+  max-http-request-header-size: 16KB
+  tomcat:
+    max-http-form-post-size: 1MB
+
+spring:
+  application:
+    name: sms-verification-gateway
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  jackson:
+    default-property-inclusion: non_null
+  mvc:
+    log-resolved-exception: false
+
+app:
+  gateway:
+    destination-phone-number: ${GATEWAY_PHONE_NUMBER:}
+  phone:
+    default-country-code: ${DEFAULT_COUNTRY_CODE:62}
+  verification:
+    prefix: ${VERIFICATION_PREFIX:VERIF}
+    code-length: ${VERIFICATION_CODE_LENGTH:8}
+    ttl: ${VERIFICATION_TTL:PT10M}
+  security:
+    api-hmac-secret: ${API_HMAC_SECRET:${HMAC_SECRET:}}
+    sms-forwarder-hmac-secret: ${SMS_FORWARDER_HMAC_SECRET:${HMAC_SECRET:}}
+    allowed-clock-skew: ${HMAC_ALLOWED_CLOCK_SKEW:PT5M}
+    nonce-cleanup-millis: ${HMAC_NONCE_CLEANUP_MILLIS:600000}
+
+logging:
+  level:
+    root: INFO
+    com.smsverification.gateway: INFO

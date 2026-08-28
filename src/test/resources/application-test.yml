@@ -1,0 +1,19 @@
+spring:
+  task:
+    scheduling:
+      enabled: false
+
+app:
+  gateway:
+    destination-phone-number: "0811-0000-9999"
+  phone:
+    default-country-code: "62"
+  verification:
+    prefix: "VERIF"
+    code-length: 8
+    ttl: PT10M
+  security:
+    api-hmac-secret: "test-api-secret-at-least-32-characters"
+    sms-forwarder-hmac-secret: "test-sms-secret-at-least-32-characters"
+    allowed-clock-skew: PT5M
+    nonce-cleanup-millis: 600000
