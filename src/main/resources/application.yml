@@ -27,7 +27,7 @@ app:
   cors:
     allowed-origins:
       - ${CORS_ALLOWED_ORIGIN_DEV:http://localhost:3000}
-      - ${CORS_ALLOWED_ORIGIN_PROD:https://USERNAME.github.io}
+      - ${CORS_ALLOWED_ORIGIN_PROD:https://andreypratama.github.io}
   security:
     api-hmac-secret: ${API_HMAC_SECRET:${HMAC_SECRET:}}
     sms-forwarder-hmac-secret: ${SMS_FORWARDER_HMAC_SECRET:${HMAC_SECRET:}}

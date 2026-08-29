@@ -359,6 +359,20 @@ class SmsVerificationFlowIntegrationTest {
     }
 
     @Test
+    void allowsCorsPreflightForGithubPagesOrigin() throws Exception {
+        mockMvc.perform(options("/api/v1/verifications")
+                        .header("Origin", "https://andreypratama.github.io")
+                        .header("Access-Control-Request-Method", "POST")
+                        .header("Access-Control-Request-Headers", "Content-Type, X-Timestamp, X-Nonce, X-Signature"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "https://andreypratama.github.io"))
+                .andExpect(header().string("Access-Control-Allow-Methods", org.hamcrest.Matchers.containsString("POST")))
+                .andExpect(header().string("Access-Control-Allow-Headers", org.hamcrest.Matchers.containsString("X-Timestamp")))
+                .andExpect(header().string("Access-Control-Allow-Headers", org.hamcrest.Matchers.containsString("X-Nonce")))
+                .andExpect(header().string("Access-Control-Allow-Headers", org.hamcrest.Matchers.containsString("X-Signature")));
+    }
+
+    @Test
     void allowsCrossOriginSignedApiRequestsAfterPreflight() throws Exception {
         String body = "{\"phoneNumber\":\"081234567890\"}";
         SignedHeaders headers = signApi("POST", "/api/v1/verifications", body);
