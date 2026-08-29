@@ -5,11 +5,13 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
 import java.time.Duration;
+import java.util.List;
 
 @ConfigurationProperties(prefix = "app")
 @Validated
@@ -17,7 +19,8 @@ public record AppProperties(
         @Valid @NotNull Gateway gateway,
         @Valid @NotNull Phone phone,
         @Valid @NotNull Verification verification,
-        @Valid @NotNull Security security
+        @Valid @NotNull Security security,
+        @Valid @NotNull Cors cors
 ) {
 
     public record Gateway(
@@ -53,5 +56,10 @@ public record AppProperties(
                 throw new IllegalArgumentException("Allowed HMAC clock skew must be greater than zero");
             }
         }
+    }
+
+    public record Cors(
+            @NotEmpty List<@NotBlank String> allowedOrigins
+    ) {
     }
 }

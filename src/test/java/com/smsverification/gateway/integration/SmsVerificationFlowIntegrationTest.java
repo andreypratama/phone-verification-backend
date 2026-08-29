@@ -20,7 +20,9 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -340,6 +342,37 @@ class SmsVerificationFlowIntegrationTest {
                 .andExpect(jsonPath("$.service").value("sms-verification-gateway"))
                 .andExpect(jsonPath("$.version").value("1.0.0"))
                 .andExpect(jsonPath("$.timestamp").isNotEmpty());
+    }
+
+    @Test
+    void allowsCorsPreflightForApiEndpointsWithoutHmac() throws Exception {
+        mockMvc.perform(options("/api/v1/verifications")
+                        .header("Origin", "http://localhost:3000")
+                        .header("Access-Control-Request-Method", "POST")
+                        .header("Access-Control-Request-Headers", "Content-Type, X-Timestamp, X-Nonce, X-Signature"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:3000"))
+                .andExpect(header().string("Access-Control-Allow-Methods", org.hamcrest.Matchers.containsString("POST")))
+                .andExpect(header().string("Access-Control-Allow-Headers", org.hamcrest.Matchers.containsString("X-Timestamp")))
+                .andExpect(header().string("Access-Control-Allow-Headers", org.hamcrest.Matchers.containsString("X-Nonce")))
+                .andExpect(header().string("Access-Control-Allow-Headers", org.hamcrest.Matchers.containsString("X-Signature")));
+    }
+
+    @Test
+    void allowsCrossOriginSignedApiRequestsAfterPreflight() throws Exception {
+        String body = "{\"phoneNumber\":\"081234567890\"}";
+        SignedHeaders headers = signApi("POST", "/api/v1/verifications", body);
+
+        mockMvc.perform(post("/api/v1/verifications")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body)
+                        .header("Origin", "http://localhost:3000")
+                        .header("X-Timestamp", headers.timestamp())
+                        .header("X-Nonce", headers.nonce())
+                        .header("X-Signature", headers.signature()))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:3000"))
+                .andExpect(jsonPath("$.status").value("PENDING"));
     }
 
     private SignedHeaders signApi(String method, String requestTarget, String body) {

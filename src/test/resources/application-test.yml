@@ -12,6 +12,10 @@ app:
     prefix: "VERIF"
     code-length: 8
     ttl: PT10M
+  cors:
+    allowed-origins:
+      - "http://localhost:3000"
+      - "https://USERNAME.github.io"
   security:
     api-hmac-secret: "test-api-secret-at-least-32-characters"
     sms-forwarder-hmac-secret: "test-sms-secret-at-least-32-characters"

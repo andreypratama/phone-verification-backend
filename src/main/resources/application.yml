@@ -24,6 +24,10 @@ app:
     prefix: ${VERIFICATION_PREFIX:VERIF}
     code-length: ${VERIFICATION_CODE_LENGTH:8}
     ttl: ${VERIFICATION_TTL:PT10M}
+  cors:
+    allowed-origins:
+      - ${CORS_ALLOWED_ORIGIN_DEV:http://localhost:3000}
+      - ${CORS_ALLOWED_ORIGIN_PROD:https://USERNAME.github.io}
   security:
     api-hmac-secret: ${API_HMAC_SECRET:${HMAC_SECRET:}}
     sms-forwarder-hmac-secret: ${SMS_FORWARDER_HMAC_SECRET:${HMAC_SECRET:}}
