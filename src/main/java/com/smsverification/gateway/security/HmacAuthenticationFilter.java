@@ -17,6 +17,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.DateTimeException;
+import java.util.Set;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
@@ -29,6 +30,7 @@ public class HmacAuthenticationFilter extends OncePerRequestFilter {
     private static final String TIMESTAMP_HEADER = "X-Timestamp";
     private static final String NONCE_HEADER = "X-Nonce";
     private static final Pattern NONCE_PATTERN = Pattern.compile("^[A-Za-z0-9._:-]{16,128}$");
+    private static final Set<String> PUBLIC_PATHS = Set.of("/health", "/version");
 
     private final AppProperties properties;
     private final HmacService hmacService;
@@ -202,5 +204,10 @@ public class HmacAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilterErrorDispatch() {
         return true;
+    }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return PUBLIC_PATHS.contains(request.getRequestURI());
     }
 }

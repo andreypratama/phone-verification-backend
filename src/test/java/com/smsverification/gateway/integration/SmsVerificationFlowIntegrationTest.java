@@ -324,6 +324,24 @@ class SmsVerificationFlowIntegrationTest {
                 .andExpect(jsonPath("$.incomingSms[0].matchStatus").value("MATCHED"));
     }
 
+    @Test
+    void exposesUnsignedHealthEndpoint() throws Exception {
+        mockMvc.perform(get("/health"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UP"))
+                .andExpect(jsonPath("$.service").value("sms-verification-gateway"))
+                .andExpect(jsonPath("$.timestamp").isNotEmpty());
+    }
+
+    @Test
+    void exposesUnsignedVersionEndpoint() throws Exception {
+        mockMvc.perform(get("/version"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.service").value("sms-verification-gateway"))
+                .andExpect(jsonPath("$.version").value("1.0.0"))
+                .andExpect(jsonPath("$.timestamp").isNotEmpty());
+    }
+
     private SignedHeaders signApi(String method, String requestTarget, String body) {
         String timestamp = String.valueOf(Instant.now().getEpochSecond());
         String nonce = UUID.randomUUID().toString();

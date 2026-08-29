@@ -13,12 +13,41 @@ servers:
     description: Ganti dengan URL deployment service
 
 tags:
+  - name: Public Service Metadata
   - name: Verifications
   - name: SMS
   - name: Debug
   - name: Internal Android Webhook
 
 paths:
+  /health:
+    get:
+      tags: [Public Service Metadata]
+      operationId: getHealth
+      summary: Mengecek apakah service hidup
+      description: Endpoint publik tanpa HMAC untuk health check load balancer, monitoring, atau uptime probe.
+      responses:
+        '200':
+          description: Service tersedia
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceHealthResponse'
+
+  /version:
+    get:
+      tags: [Public Service Metadata]
+      operationId: getVersion
+      summary: Mengambil versi service yang sedang berjalan
+      description: Endpoint publik tanpa HMAC untuk mengetahui versi build service aktif.
+      responses:
+        '200':
+          description: Metadata versi service
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceVersionResponse'
+
   /api/v1/verifications:
     post:
       tags: [Verifications]
@@ -199,6 +228,34 @@ components:
         format: uuid
 
   schemas:
+    ServiceHealthResponse:
+      type: object
+      required: [status, service, timestamp]
+      properties:
+        status:
+          type: string
+          examples: [UP]
+        service:
+          type: string
+          examples: [sms-verification-gateway]
+        timestamp:
+          type: string
+          format: date-time
+
+    ServiceVersionResponse:
+      type: object
+      required: [service, version, timestamp]
+      properties:
+        service:
+          type: string
+          examples: [sms-verification-gateway]
+        version:
+          type: string
+          examples: ['1.0.0']
+        timestamp:
+          type: string
+          format: date-time
+
     VerificationStatus:
       type: string
       enum: [PENDING, VERIFIED, EXPIRED]

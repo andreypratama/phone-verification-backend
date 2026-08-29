@@ -83,7 +83,43 @@ scripts/
 
 # API
 
-Semua endpoint membutuhkan header HMAC. Skema HMAC untuk webhook Android berbeda dari API aplikasi karena harus kompatibel dengan aplikasi SMS Forwarder.
+Mayoritas endpoint membutuhkan header HMAC. Pengecualian publiknya adalah `GET /health` dan `GET /version`. Skema HMAC untuk webhook Android berbeda dari API aplikasi karena harus kompatibel dengan aplikasi SMS Forwarder.
+
+## 0. Health check
+
+```http
+GET /health
+```
+
+Response:
+
+```json
+{
+  "status": "UP",
+  "service": "sms-verification-gateway",
+  "timestamp": "2026-08-29T06:30:00Z"
+}
+```
+
+Endpoint ini tidak membutuhkan HMAC dan cocok untuk uptime probe atau load balancer.
+
+## 0b. Service version
+
+```http
+GET /version
+```
+
+Response:
+
+```json
+{
+  "service": "sms-verification-gateway",
+  "version": "1.0.0",
+  "timestamp": "2026-08-29T06:30:00Z"
+}
+```
+
+Endpoint ini juga tidak membutuhkan HMAC dan menampilkan versi build service yang sedang berjalan.
 
 ## 1. Generate kode unik
 
