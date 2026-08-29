@@ -1,0 +1,12 @@
+opencollection: 1.0.0
+
+info:
+  name: SMS Verification Gateway
+
+bundled: false
+
+extensions:
+  bruno:
+    ignore:
+      - .git
+      - node_modules

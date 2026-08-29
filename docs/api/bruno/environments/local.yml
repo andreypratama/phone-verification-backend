@@ -1,0 +1,21 @@
+name: local
+
+variables:
+  - name: baseUrl
+    value: http://localhost:8080
+  - name: phoneNumber
+    value: "081234567890"
+  - name: verificationId
+    value: ""
+  - name: verificationCode
+    value: ""
+  - name: normalizedPhoneNumber
+    value: ""
+  - name: destinationNumber
+    value: ""
+  - name: smsText
+    value: ""
+  - name: smsSender
+    value: "+6281234567890"
+  - name: smsReceivedAt
+    value: ""

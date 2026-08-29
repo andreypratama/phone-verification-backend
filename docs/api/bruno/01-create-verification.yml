@@ -1,0 +1,75 @@
+info:
+  name: Create Verification
+  type: http
+  seq: 1
+  tags:
+    - api
+    - verification
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/verifications"
+  headers:
+    - name: Accept
+      value: application/json
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "phoneNumber": "{{phoneNumber}}"
+      }
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        const crypto = require("crypto");
+
+        const secret = process.env.API_HMAC_SECRET;
+        if (!secret || secret.length < 32) {
+          throw new Error("API_HMAC_SECRET must contain at least 32 characters.");
+        }
+
+        const timestamp = Math.floor(Date.now() / 1000).toString();
+        const nonce = crypto.randomUUID();
+        const url = new URL(req.getUrl());
+        const requestTarget = `${url.pathname}${url.search}`;
+        const rawBody = req.getBody({ raw: true }) || "";
+        const bodyHash = crypto.createHash("sha256").update(rawBody, "utf8").digest("hex");
+        const canonical = `${req.getMethod()}\n${requestTarget}\n${timestamp}\n${nonce}\n${bodyHash}`;
+        const signature = crypto.createHmac("sha256", secret).update(canonical, "utf8").digest("hex");
+
+        req.setHeader("X-Timestamp", timestamp);
+        req.setHeader("X-Nonce", nonce);
+        req.setHeader("X-Signature", signature);
+    - type: after-response
+      code: |-
+        if (res.getStatus() !== 201) {
+          return;
+        }
+
+        const body = res.getBody();
+        bru.setVar("verificationId", body.verificationId);
+        bru.setVar("verificationCode", body.code);
+        bru.setVar("normalizedPhoneNumber", body.phoneNumber);
+        bru.setVar("destinationNumber", body.destinationNumber);
+        bru.setVar("smsText", body.smsText);
+    - type: tests
+      code: |-
+        test("should create verification", function() {
+          expect(res.getStatus()).to.equal(201);
+          expect(res.getBody().verificationId).to.be.a("string");
+          expect(res.getBody().status).to.equal("PENDING");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |
+  Membuat sesi verifikasi baru dan otomatis menyimpan `verificationId` serta `verificationCode`
+  ke runtime variable Bruno untuk request berikutnya.

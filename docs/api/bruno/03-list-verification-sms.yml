@@ -1,0 +1,56 @@
+info:
+  name: List Verification SMS
+  type: http
+  seq: 3
+  tags:
+    - api
+    - sms
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/v1/verifications/:verificationId/sms"
+  headers:
+    - name: Accept
+      value: application/json
+  params:
+    - name: verificationId
+      value: "{{verificationId}}"
+      type: path
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        const crypto = require("crypto");
+
+        const secret = process.env.API_HMAC_SECRET;
+        if (!secret || secret.length < 32) {
+          throw new Error("API_HMAC_SECRET must contain at least 32 characters.");
+        }
+
+        const timestamp = Math.floor(Date.now() / 1000).toString();
+        const nonce = crypto.randomUUID();
+        const url = new URL(req.getUrl());
+        const requestTarget = `${url.pathname}${url.search}`;
+        const bodyHash = crypto.createHash("sha256").update("", "utf8").digest("hex");
+        const canonical = `${req.getMethod()}\n${requestTarget}\n${timestamp}\n${nonce}\n${bodyHash}`;
+        const signature = crypto.createHmac("sha256", secret).update(canonical, "utf8").digest("hex");
+
+        req.setHeader("X-Timestamp", timestamp);
+        req.setHeader("X-Nonce", nonce);
+        req.setHeader("X-Signature", signature);
+    - type: tests
+      code: |-
+        test("should return sms list", function() {
+          expect(res.getStatus()).to.equal(200);
+          expect(res.getBody().items).to.be.an("array");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |
+  Mengambil daftar maksimum 50 SMS yang terkait dengan `verificationId`.

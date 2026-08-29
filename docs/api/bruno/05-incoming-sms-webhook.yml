@@ -1,0 +1,76 @@
+info:
+  name: Incoming SMS Webhook
+  type: http
+  seq: 5
+  tags:
+    - internal
+    - sms
+
+http:
+  method: POST
+  url: "{{baseUrl}}/internal/sms/incoming"
+  headers:
+    - name: Accept
+      value: application/json
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "from": "{{smsSender}}",
+        "text": "VERIF {{verificationCode}}",
+        "sentStamp": 1787904000000,
+        "receivedStamp": 1787904001000,
+        "sim": "SIM1"
+      }
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        const crypto = require("crypto");
+
+        const secret = process.env.SMS_FORWARDER_HMAC_SECRET;
+        if (!secret || secret.length < 32) {
+          throw new Error("SMS_FORWARDER_HMAC_SECRET must contain at least 32 characters.");
+        }
+
+        const now = Date.now();
+        const body = {
+          from: bru.getVar("normalizedPhoneNumber") || bru.getEnvVar("smsSender"),
+          text: `VERIF ${bru.getVar("verificationCode") || bru.getEnvVar("verificationCode")}`,
+          sentStamp: now - 1000,
+          receivedStamp: now,
+          sim: "SIM1",
+        };
+
+        req.setBody(body);
+
+        const rawBody = req.getBody({ raw: true }) || "";
+        const signature = crypto.createHmac("sha256", secret).update(rawBody, "utf8").digest("hex");
+
+        req.setHeader("X-Signature", signature);
+    - type: after-response
+      code: |-
+        if (res.getStatus() !== 200) {
+          return;
+        }
+
+        bru.setVar("smsReceivedAt", new Date().toISOString());
+    - type: tests
+      code: |-
+        test("should accept incoming sms", function() {
+          expect(res.getStatus()).to.equal(200);
+          expect(res.getBody().matchStatus).to.be.a("string");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |
+  Meniru payload dari Android SMS Forwarder. Request ini paling praktis dijalankan setelah
+  `Create Verification` karena akan memakai `verificationCode` hasil response sebelumnya.

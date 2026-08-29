@@ -1,0 +1,54 @@
+info:
+  name: Debug Storage
+  type: http
+  seq: 4
+  tags:
+    - api
+    - debug
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/v1/debug/storage"
+  headers:
+    - name: Accept
+      value: application/json
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        const crypto = require("crypto");
+
+        const secret = process.env.API_HMAC_SECRET;
+        if (!secret || secret.length < 32) {
+          throw new Error("API_HMAC_SECRET must contain at least 32 characters.");
+        }
+
+        const timestamp = Math.floor(Date.now() / 1000).toString();
+        const nonce = crypto.randomUUID();
+        const url = new URL(req.getUrl());
+        const requestTarget = `${url.pathname}${url.search}`;
+        const bodyHash = crypto.createHash("sha256").update("", "utf8").digest("hex");
+        const canonical = `${req.getMethod()}\n${requestTarget}\n${timestamp}\n${nonce}\n${bodyHash}`;
+        const signature = crypto.createHmac("sha256", secret).update(canonical, "utf8").digest("hex");
+
+        req.setHeader("X-Timestamp", timestamp);
+        req.setHeader("X-Nonce", nonce);
+        req.setHeader("X-Signature", signature);
+    - type: tests
+      code: |-
+        test("should return storage snapshot", function() {
+          expect(res.getStatus()).to.equal(200);
+          expect(res.getBody().verifications).to.be.an("array");
+          expect(res.getBody().incomingSms).to.be.an("array");
+          expect(res.getBody().nonces).to.be.an("array");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |
+  Endpoint debug untuk melihat seluruh isi storage in-memory selama service hidup.
